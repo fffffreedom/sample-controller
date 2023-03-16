@@ -80,7 +80,7 @@ func main() {
 	exampleInformerFactory.Start(stopCh)
 
 	// 启动controller
-	// 为什么要启动2个worker？
+	// 为什么要启动2个worker？TODO
 	if err = controller.Run(2, stopCh); err != nil {
 		klog.Fatalf("Error running controller: %s", err.Error())
 	}
