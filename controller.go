@@ -91,6 +91,7 @@ func NewController(
 	deploymentInformer appsinformers.DeploymentInformer,
 	fooInformer informers.FooInformer) *Controller {
 
+	// k8s事件相关初始化，TODO 单独分析一下
 	// Create event broadcaster
 	// Add sample-controller types to the default Kubernetes Scheme so Events can be
 	// logged for sample-controller types.
@@ -101,6 +102,7 @@ func NewController(
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
+	// 初始化controller
 	controller := &Controller{
 		kubeclientset:     kubeclientset,
 		sampleclientset:   sampleclientset,
@@ -112,6 +114,7 @@ func NewController(
 		recorder:          recorder,
 	}
 
+	// 设置两个资源对象的事件处理函数
 	klog.Info("Setting up event handlers")
 	// Set up an event handler for when Foo resources change
 	fooInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -162,6 +165,8 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) error {
 	}
 
 	klog.Info("Starting workers")
+
+	// 每个1秒钟调用处理函数
 	// Launch two workers to process Foo resources
 	for i := 0; i < workers; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
@@ -191,7 +196,7 @@ func (c *Controller) processNextWorkItem() bool {
 		return false
 	}
 
-	// We wrap this block in a func so we can defer c.workqueue.Done.
+	// We wrap this block in a func so we can defer c.workqueue.Done. 好的方法！
 	err := func(obj interface{}) error {
 		// We call Done here so the workqueue knows we have finished
 		// processing this item. We also must remember to call Forget if we
@@ -222,6 +227,8 @@ func (c *Controller) processNextWorkItem() bool {
 			c.workqueue.AddRateLimited(key)
 			return fmt.Errorf("error syncing '%s': %s, requeuing", key, err.Error())
 		}
+
+		// 成功处理完obj后，也删除
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
 		c.workqueue.Forget(obj)
@@ -284,6 +291,7 @@ func (c *Controller) syncHandler(key string) error {
 		return err
 	}
 
+	// 判断deloymnet是否由foo管理，TODO 观察一下怎么判断
 	// If the Deployment is not controlled by this Foo resource, we should log
 	// a warning to the event recorder and return error msg.
 	if !metav1.IsControlledBy(deployment, foo) {
@@ -292,6 +300,7 @@ func (c *Controller) syncHandler(key string) error {
 		return fmt.Errorf("%s", msg)
 	}
 
+	// 创建新的deployment
 	// If this number of the replicas on the Foo resource is specified, and the
 	// number does not equal the current desired replicas on the Deployment, we
 	// should update the Deployment resource.
@@ -380,6 +389,7 @@ func (c *Controller) handleObject(obj interface{}) {
 			return
 		}
 
+		// 把资源对象放入队列
 		c.enqueueFoo(foo)
 		return
 	}

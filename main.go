@@ -24,6 +24,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
+
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
@@ -49,28 +50,37 @@ func main() {
 		klog.Fatalf("Error building kubeconfig: %s", err.Error())
 	}
 
+	// 1. 创建访问k8s内置资源的和自定资源的client
+	//  为什么要创建两个client？并且两个client的类型还不同？
+	//  a. 访问k8s资源对象的client
 	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		klog.Fatalf("Error building kubernetes clientset: %s", err.Error())
 	}
 
+	// b. 访问自己定义的api group(our own API group)
 	exampleClient, err := clientset.NewForConfig(cfg)
 	if err != nil {
 		klog.Fatalf("Error building example clientset: %s", err.Error())
 	}
 
+	// 2. 创建Informer，并指定resync的时间间隔
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactory(kubeClient, time.Second*30)
 	exampleInformerFactory := informers.NewSharedInformerFactory(exampleClient, time.Second*30)
 
+	// 3. 创建controller
 	controller := NewController(kubeClient, exampleClient,
 		kubeInformerFactory.Apps().V1().Deployments(),
 		exampleInformerFactory.Samplecontroller().V1alpha1().Foos())
 
+	// 4. 启动Informer
 	// notice that there is no need to run Start methods in a separate goroutine. (i.e. go kubeInformerFactory.Start(stopCh)
 	// Start method is non-blocking and runs all registered informers in a dedicated goroutine.
 	kubeInformerFactory.Start(stopCh)
 	exampleInformerFactory.Start(stopCh)
 
+	// 启动controller
+	// 为什么要启动2个worker？
 	if err = controller.Run(2, stopCh); err != nil {
 		klog.Fatalf("Error running controller: %s", err.Error())
 	}

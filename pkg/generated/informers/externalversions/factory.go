@@ -43,6 +43,9 @@ type sharedInformerFactory struct {
 	defaultResync    time.Duration
 	customResync     map[reflect.Type]time.Duration
 
+	// 每种类型的资源对象，可以共用一个shared Informer
+    // ListerWatcher定义在SharedIndexInformer结构体中
+    // reflect.Type值是多少？
 	informers map[reflect.Type]cache.SharedIndexInformer
 	// startedInformers is used for tracking which informers have been started.
 	// This allows Start() to be called multiple times safely.
